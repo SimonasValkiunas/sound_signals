@@ -3,11 +3,7 @@ import numpy as np
 import wave
 import sys
 
-_MODE_RB = "rb"
-_SOUNDS_PATH = "./Sounds/"
-_TONES_PATH = "./Tones/"
 
-w = wave.open(_TONES_PATH + 'signal#01.wav', _MODE_RB)
 
 nframes = w.getnframes()
 print(nframes)

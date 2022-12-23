@@ -1,0 +1,8 @@
+1)
+- marker set on time
+- fix path
+
+2)
+NKS
+Draw new charts (maybe refactor)
+Complete other points
