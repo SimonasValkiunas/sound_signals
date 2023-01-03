@@ -31,50 +31,75 @@ class waveVisualizer:
 
         self._wave = w_obj
 
+    def getSignal(self):
+        signal_array = np.frombuffer(self._wave._frames, dtype=np.int16).tolist()
+        sample_freq = self._wave._framerate
+        n_samples = self._wave._nframes
+        
+        if self._wave._nchannels == 1:
+            signal = [{
+                "name": "Mono",
+                 "data": signal_array,
+                 "time": np.linspace(0, n_samples/sample_freq, num=n_samples).tolist()
+                }]
+            return signal
+        else:
+            signal = [{
+                "name": "Left channel",
+                 "data": signal_array[0::2],
+                 "time": np.linspace(0, n_samples/sample_freq, num=n_samples).tolist()
+            },
+            {
+                "name": "Right channel",
+                 "data": signal_array[1::2],
+                 "time": np.linspace(0, n_samples/sample_freq, num=n_samples).tolist()
+            }
+            ]
+            return signal
+
+
+    def scaleSignal(self,signal,scale):
+        signal_scaled = []
+
+        sample_freq = self._wave._framerate
+        n_samples = self._wave._nframes
+        
+        for s in signal:
+            s['data'] = self.calculateRMS(scale,n_samples,s['data'])
+            s['time'] = np.linspace(0, n_samples/sample_freq, num=scale*2).tolist()
+            signal_scaled.append(s)
+        
+        return signal_scaled
+
+    # refactor later
+    def formatChart(self,signal):
+        n_channels = self._wave._nchannels
+
+        chart = {
+            "labels": signal[0]['time'],
+            "mode": n_channels,
+        }
+
+        if n_channels > 1:
+            chart['data'] = {
+                "l_channel": signal[0]['data'],
+                "r_channel": signal[1]['data']
+            }
+        else:
+            chart['data'] = signal[0]['data']
+        
+        return chart
+
     #init a chart
     def createChart(self):
         self.readFile()
-        
-        
-        sample_freq = self._wave._framerate
-        n_samples = self._wave._nframes
 
-        n_channels = self._wave._nchannels
+        signal = self.getSignal()
 
-        signal_wave = self._wave._frames
-        signal_array = np.frombuffer(signal_wave, dtype=np.int16).tolist()
+        if self._scale > 0:
+            signal = self.scaleSignal(signal, self._scale)
 
-        if self._scale > 1:
-            times = np.linspace(0, n_samples/sample_freq, num=self._scale*2).tolist()
-        else:
-            times = np.linspace(0, n_samples/sample_freq, num=n_samples).tolist()
-        
-        if n_channels == 2:
-            if self._scale > 1:
-                l_channel = self.calculateRMS(self._scale,n_samples,signal_array[0::2])
-                r_channel = self.calculateRMS(self._scale,n_samples,signal_array[1::2])
-            else:
-                l_channel = signal_array[0::2]
-                r_channel = signal_array[1::2]
-
-            chart = {"labels": times,
-                "data": {
-                    "l_channel": l_channel,
-                    "r_channel": r_channel,
-                },
-                "mode": n_channels
-            }
-        else:
-            if self._scale > 1:
-                signal = self.calculateRMS(self._scale,n_samples,signal_array)
-            else:
-                signal = signal_array
-                
-            chart = {"labels": times,
-                    "data": signal,
-                    "mode": n_channels
-                    }
-                
+        chart = self.formatChart(signal)      
         return chart
     
     def calculateRMS(self,p_width,t_samples,signal):
@@ -97,32 +122,98 @@ class waveVisualizer:
             return self._scale
         else: 
             return self._wave._nframes
-        pass
 
-    def getEnergyChart(self,sample_time):
 
-        # ,nframes = 12,signal_time = 12,sample_time = 2,signal = [0,1,2,3,4,5,6,7,8,9,10,11]
-        signal_time = self._wave._nframes/self._wave._framerate
-        n_samples = math.floor(signal_time/sample_time)
-        sample_width = math.floor(self._wave._nframes/n_samples)
+    def getEnergyChart(self,sample_time, signal, nframes, signal_time):
 
-        signal_wave = self._wave._frames
-        signal_array = np.frombuffer(signal_wave, dtype=np.int16).tolist()
-        
+        # signal = [0,1,0,1,0,1,0,1,0,1,0,1]
+        # nframes = len(signal)
+        # signal_time = 12 # some arbitraty value 
+
+        nsamples = math.floor(signal_time / sample_time)
+        N = math.floor(nframes / nsamples)
+
+        t = np.array(range(0,nsamples*2))
+
         energy_data = np.array([])
-        energy_time = np.array([])
-        for i in range(0,math.floor(self._wave._nframes/sample_width)):
-            samples = np.array(signal_array[(sample_width * i):(sample_width * (i+1))])
-            sample_energy = np.mean(samples**2)/sample_width
-            energy_data = np.append(energy_data,math.floor(sample_energy))
-            energy_time = np.append(energy_time, round(sample_time*(i+1),5))
+
+        for i in range(0,nsamples*2-1):
+            
+            shift = math.floor(N*i/2)
+            
+            sample = np.array(signal[(N*i - shift):(N*(i+1) - shift)])
+            sample_energy = np.mean(sample**2)
+
+            energy_data = np.append(energy_data,sample_energy)
+        
 
         chart = {
-                "labels": energy_time.tolist(),
+                "labels": t.tolist(),
                 "data": energy_data.tolist(),
                 "mode": 1
                 }
+        
         return chart
+
+        # signal_time = self._wave._nframes/self._wave._framerate
+        # n_samples = math.floor(signal_time/sample_time)
+        # sample_width = math.floor(self._wave._nframes/n_samples)
+
+        # #--- fix for stereo ---#
+        # signal_wave = self._wave._frames
+        # signal_array = np.frombuffer(signal_wave, dtype=np.int16).tolist()
+        # #---------------------------------------------------------------#
+
+
+        # energy_data = np.array([])
+        # energy_time = np.array([])
+
+        # # remove time labels
+        # for i in range(0,math.floor(((self._wave._nframes/sample_width)*2)-1)):
+        #     # make intervals overlap:
+        #     shift = math.floor(sample_width*i/2)
+        #     shift_time = math.floor(sample_time*i/2)
+        #     samples = np.array(signal_array[(sample_width * i - shift):(sample_width * (i+1) - shift)])
+        #     sample_energy = np.mean(samples**2)
+        #     energy_data = np.append(energy_data,math.floor(sample_energy))
+        #     energy_time = np.append(energy_time, round(sample_time*(i+1) - shift_time,5))
+
+        # chart = {
+        #         "labels": energy_time.tolist(),
+        #         "data": energy_data.tolist(),
+        #         "mode": 1
+        #         }
+        # return chart
+    
+    # def getNKSChart(self,sample_time):
+    #     signal_time = self._wave._nframes/self._wave._framerate
+    #     n_samples = math.floor(signal_time/sample_time)
+    #     sample_width = math.floor(self._wave._nframes/n_samples)
+
+    #     #--- fix for stereo ---#
+    #     signal_wave = self._wave._frames
+    #     signal_array = np.frombuffer(signal_wave, dtype=np.int16).tolist()
+    #     #---------------------------------------------------------------#
+
+    #     nks_data = np.array([])
+    #     nks_time = np.array([])
+
+    #     for i in range(0,math.floor(((self._wave._nframes/sample_width)*2)-1)):
+    #         # make intervals overlap:
+    #         shift = math.floor(sample_width*i/2)
+    #         shift_time = math.floor(sample_time*i/2)
+    #         nks = np.array([])    
+    #         for j in range((sample_width*i-shift)+1, (sample_width*(i+1) - shift)):
+    #             np.append(nks,self.s(signal_array[j]) - self.s(signal_array[j-1]))1
+    #         np.append(nks_data,np.mean(nks)/2)
+    #         np.append(nks_time, round(sample_time*(i+1) - shift_time,5))
+
+    def s(self,x):
+        if x >= 0:
+            return 1
+        else:
+            return -1
+
 
 
 

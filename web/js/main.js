@@ -29,7 +29,7 @@ var mode = 0;
 
 eel.expose(init_chart);
 function init_chart(data){
-  console.log(data)
+//  console.log(data)
   let chartData = JSON.parse(data);
   mode = chartData.mode
   if(mode == 1){
@@ -149,15 +149,14 @@ function create_slider(min,max){
   }
 }
 
-
-
-
-
-
-
-
-
-
+// function addChartElement(chartClass, chartParent){
+//   let charts = document.getElementsByClassName(chartClass);
+//   let next_index = (charts.length ? charts.length : 0) + 1;
+//   let chartTemplate = `<div>
+//   <canvas id="chart${next_index}" class="${chartClass}"></canvas>
+//   </div>`;
+//   document.getElementById(chartParent).innerHTML += chartTemplate;
+// }
 
 
 

@@ -3,6 +3,9 @@
 - fix path
 
 2)
+Energy chart
 NKS
 Draw new charts (maybe refactor)
-Complete other points
+Fix charts for stereo
+add treshold
+
